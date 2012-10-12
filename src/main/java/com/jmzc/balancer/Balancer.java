@@ -7,17 +7,17 @@ import java.util.Random;
 public class Balancer<E>
 {
 
+	// 0 ----- LIMIT ------------- 1
+	private final double LIMIT = 0.15;
+	
 	
 	private List<E> l0 = new ArrayList<E>();
 	private List<E> l1 = new ArrayList<E>();
 	
-	/*
-	private Map<Integer,E> h0 = new HashMap<Integer,E>();
-	private Map<Integer,E> h1 = new HashMap<Integer,E>();
-	*/
-	
-	
+
 	private Random random = new Random();
+	
+	
 	
 
 	public Balancer(List<E> l) 
@@ -33,7 +33,7 @@ public class Balancer<E>
 	 * Returns the best candidate 
 	 * 
 	 */
-	public synchronized Entry<E> next() throws Exception
+	public synchronized Entry next() throws Exception
 	{
 		
 		int s = this.select();
@@ -42,14 +42,14 @@ public class Balancer<E>
 			int i = random.nextInt(l0.size());
 			
 			if ( l0.get(i) != null)
-				return new Entry<E>(i, l0.get(i),this);	
+				return new Entry(i, l0.get(i),this);	
 			else
 			{
 				int j = random.nextInt(l1.size());
 				if ( l1.get(j) == null)
 					throw new Exception();
 				
-				return new Entry<E>(j, l1.get(j),this);	
+				return new Entry(j, l1.get(j),this);	
 				
 			}
 		} 
@@ -58,7 +58,7 @@ public class Balancer<E>
 			int i = random.nextInt(l1.size());
 			
 			if ( l1.get(i) != null)
-				return new Entry<E>(i, l1.get(i),this);	
+				return new Entry(i, l1.get(i),this);	
 			else
 			{
 				int j = random.nextInt(l0.size());
@@ -66,7 +66,7 @@ public class Balancer<E>
 				if ( l1.get(j) == null)
 					throw new Exception();
 				
-				return new Entry<E>(j, l0.get(i),this);	
+				return new Entry(j, l0.get(i),this);	
 			}
 		}
 			
@@ -84,16 +84,25 @@ public class Balancer<E>
 	private int select()
 	{
 		double n = random.nextDouble() ;
-		int i = (n <= 1/3 ? 1 * l0.size() : 0 )* 1/3 + ( n > 1/3 ? 1 * l1.size() : 0) * + 2/3;
+
+		int i = ( (n > LIMIT && l1.size() > 0) || (n <= LIMIT && l0.size() == 0)  ? 1  : 0) * 1;
 		
-		if (i == 1/3)
-			return 0;
-		else
+		System.out.println("i:"  + i);
+		
+		if (i == 1)
+		{
+			
 			return 1;
+		}
+		else  
+		{
+			System.out.println("Elegimos de los malos");
+			return 0;
+		}
 	}
 	
 	
-	private void close(Entry<? extends E> e)
+	private synchronized void close(Entry e)
 	{
 		l0.remove(e.getObject());
 		l1.remove(e.getObject());
@@ -113,14 +122,14 @@ public class Balancer<E>
 	 * @author jmzc
 	 *
 	 */
-	public class Entry<T extends E> extends Object
+	public class Entry 
 	{
 		
 		// Identity
 		private int id;
 
 		// Object
-		private T object;
+		private E object;
 
 		// Result reported by user
 		private int r; 
@@ -129,7 +138,7 @@ public class Balancer<E>
 		private Balancer<E> b; 
 
 		
-		private Entry(int id, T object, Balancer<E> b)
+		private Entry(int id, E object, Balancer<E> b)
 		{
 			super();
 			this.id = id;
@@ -149,12 +158,12 @@ public class Balancer<E>
 		}
 
 
-		public int getID()
+		private int getID()
 		{
 			return this.id;
 		}
 
-		public T getObject() 
+		public E getObject() 
 		{
 			return object;
 		}
@@ -166,6 +175,7 @@ public class Balancer<E>
 			else
 				this.setR(0);
 			
+			// Callback
 			this.b.close(this);
 			
 		}
@@ -174,10 +184,9 @@ public class Balancer<E>
 		@SuppressWarnings("unchecked")
 		public boolean equals(Object o)
 		{
-			if (o instanceof Entry)
+			if (o instanceof Balancer.Entry)
 			{
-				
-				Entry<T> e = (Entry<T>)o;
+				Entry e = (Entry)o;
 				if ( this.getID() == e.getID())
 					return true;
 				else
